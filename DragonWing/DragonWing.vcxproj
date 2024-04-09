@@ -128,9 +128,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="antie.c" />
     <ClCompile Include="DragonWing.c" />
+    <ClCompile Include="helpers.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="antie.h" />
     <ClInclude Include="helpers.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

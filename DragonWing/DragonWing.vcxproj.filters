@@ -18,9 +18,18 @@
     <ClCompile Include="DragonWing.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="helpers.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="antie.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="helpers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="antie.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

