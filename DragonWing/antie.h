@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Windows.h>
-#include <winternl.h>
+#include "helpers.h"
 
 BOOL IsDbgrPresent();
 

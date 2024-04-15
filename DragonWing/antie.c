@@ -1,5 +1,4 @@
 #include "antie.h"
-#include "helpers.h"
 
 BOOL IsDbgrPresent()
 {

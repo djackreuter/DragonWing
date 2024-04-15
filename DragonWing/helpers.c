@@ -1,5 +1,4 @@
 #include "helpers.h"
-
 tLoadLibraryA pLoadLibraryA = NULL;
 
 HMODULE hlpGetModuleHandle(IN LPCWSTR sModuleName)

