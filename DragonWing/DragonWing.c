@@ -4,7 +4,7 @@
 #include "helpers.h"
 #include "antie.h"
 
-#define PRINT_WINAPI_ERR(cApiName) printf("[!] %s Failed With Error: %d\n", cApiName, GetLastError())
+#define PRINT_WINAPI_ERR(cApiName) printf("[!] %s Failed With Error: %lu\n", cApiName, GetLastError())
 #define isDebug 	FALSE
 #define EXEC_WAIT 1
 #define KEY_SIZE 0x10 // 16
@@ -31,8 +31,6 @@ BOOL InitialDecrypt(IN PBYTE pBuffer, DWORD dwBufferLen, OUT PBYTE* ppBuffer)
 	tLoadLibraryW pLoadLibraryW = (tLoadLibraryW)hlpGetProcAddress(hlpGetModuleHandle(L"kernel32.dll"), "LoadLibraryW");
 
 	pSystemFunction032 SystemFunction032 = (pSystemFunction032)hlpGetProcAddress(pLoadLibraryW(L"Advapi32.dll"), sSystemFunction032);
-
-	DWORD dwOldProtection = 0x00;
 
 	if (!pBuffer || !dwBufferLen)
 		return FALSE;
@@ -393,11 +391,11 @@ BOOL SectionRc4EncryptDecrypt(IN PBYTE pBuffer, IN DWORD dwBufferLen, IN char * 
 	{
 		if (!bDecrypt)
 		{
-			printf("Encrypting Section: %s\tAddr: %p\tSize: %d\n", pName, pBuffer, dwBufferLen);
+			printf("Encrypting Section: %s\tAddr: %p\tSize: %lu\n", pName, pBuffer, dwBufferLen);
 		}
 		else
 		{
-			printf("Decrypting Section: %s\tAddr: %p\tSize: %d\n", pName, pBuffer, dwBufferLen);
+			printf("Decrypting Section: %s\tAddr: %p\tSize: %lu\n", pName, pBuffer, dwBufferLen);
 		}
 	}
 
@@ -529,7 +527,6 @@ LONG WINAPI VectoredExceptionHandler(PEXCEPTION_POINTERS pExceptionInfo)
 		// make sure exception address is in the headers section of the PE
 		if ((ULONG_PTR)(pExceptionInfo->ExceptionRecord->ExceptionAddress) >= g_uPeTextAddr && (ULONG_PTR)(pExceptionInfo->ExceptionRecord->ExceptionAddress) <= (g_uPeTextAddr + (ULONG_PTR)g_sPeTotalSize))
 		{
-			DWORD dwOldProtection = 0x00;
 			printf("[*] HANDLED [*] \n");
 
 			if (!g_hTimerQueue || !g_hTimer)

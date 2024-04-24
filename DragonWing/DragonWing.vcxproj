@@ -135,6 +135,10 @@
   <ItemGroup>
     <ClInclude Include="antie.h" />
     <ClInclude Include="helpers.h" />
+    <ClInclude Include="resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="metadata.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
