@@ -46,7 +46,7 @@ FARPROC hlpGetProcAddress(IN HMODULE hModule, IN LPCSTR lpApiName)
 	PWORD AddressOfOrdinalsArray = (PWORD)(pBase + pImgExportDir->AddressOfNameOrdinals);
 	PVOID pFunctionAddress = NULL;
 
-	for (int i = 0; i < pImgExportDir->NumberOfFunctions; i++)
+	for (DWORD i = 0; i < pImgExportDir->NumberOfFunctions; i++)
 	{
 		CHAR* pFuncName = (CHAR*)(pBase + AddressOfNamesArray[i]);
 		WORD wFuncOrdinal = AddressOfOrdinalsArray[i];

@@ -3,6 +3,7 @@
 #include <Windows.h>
 
 typedef LPVOID HINTERNET;
+typedef LONG NTSTATUS;
 typedef BOOL (WINAPI* tVirtualProtect) (IN LPVOID lpAddress,IN SIZE_T dwSize,IN DWORD flNewProtect,OUT PDWORD lpflOldProtect);
 typedef LPVOID (WINAPI* tVirtualAlloc) (IN LPVOID lpAddress, IN SIZE_T dwSize, IN DWORD flAllocationType, IN DWORD flProtect);
 typedef BOOL (WINAPI* tCreateTimerQueueTimer) (OUT PHANDLE phNewTimer, IN HANDLE TimerQueue, IN WAITORTIMERCALLBACK Callback, IN PVOID Parameter, IN DWORD DueTime, IN DWORD Period, IN ULONG Flags);
@@ -17,12 +18,22 @@ typedef HINTERNET (WINAPI* tInternetOpenA) (IN LPCSTR lpszAgent, IN DWORD dwAcce
 typedef BOOL (WINAPI* tInternetReadFile) (IN HINTERNET hFile, OUT LPVOID lpBuffer, IN DWORD dwNumberOfBytesToRead, OUT LPDWORD lpdwNumberOfBytesRead);
 typedef BOOL (WINAPI* tInternetSetOptionA) (IN HINTERNET hInternet, IN DWORD dwOption, IN LPVOID lpBuffer, IN DWORD dwBufferLength);
 typedef BOOL (WINAPI* tInternetCloseHandle) (IN HINTERNET hInternet);
+typedef DWORD (WINAPI* tGetProcessId)(IN HANDLE Process);
+typedef LPVOID (WINAPI* tCreateFiber)(IN SIZE_T dwStackSize, IN LPFIBER_START_ROUTINE lpStartAddress, IN LPVOID lpParameter);
+typedef LPVOID (WINAPI* tConvertThreadToFiber)(IN LPVOID lpParameter);
+typedef void (WINAPI* tSwitchToFiber)(IN LPVOID lpFiber);
+
+typedef struct _SECTION_DATA {
+    char * Name;
+    ULONG_PTR Address;
+    SIZE_T Size;
+} SECTION_DATA;
 
 typedef struct _UNICODE_STRING
 {
-	USHORT Length;
-	USHORT MaximumLength;
-	PWCH Buffer;
+    USHORT Length;
+	  USHORT MaximumLength;
+	  PWCH Buffer;
 } UNICODE_STRING;
 
 
@@ -58,10 +69,7 @@ typedef struct _LDR_DATA_TABLE_ENTRY
     ULONG TimeDateStamp;
 } LDR_DATA_TABLE_ENTRY, *PLDR_DATA_TABLE_ENTRY;
  
-typedef
-VOID
-(NTAPI *PPS_POST_PROCESS_INIT_ROUTINE)(
-    VOID);
+typedef VOID(NTAPI *PPS_POST_PROCESS_INIT_ROUTINE)(VOID);
  
 typedef struct _PEB
 {
@@ -88,32 +96,32 @@ typedef struct _PEB
 	
 typedef struct _PE_HEADERS
 {
-	PBYTE                    pFileBuffer;
-	DWORD                    dwFileSize;
+    PBYTE                    pFileBuffer;
+    DWORD                    dwFileSize;
 
-	PIMAGE_NT_HEADERS        pImgNtHdrs;
-	PIMAGE_SECTION_HEADER    pImgSecHdr;
+    PIMAGE_NT_HEADERS        pImgNtHdrs;
+    PIMAGE_SECTION_HEADER    pImgSecHdr;
 
-	PIMAGE_DATA_DIRECTORY    pEntryImportDataDir;
-	PIMAGE_DATA_DIRECTORY    pEntryBaseRelocDataDir;
-	PIMAGE_DATA_DIRECTORY    pEntryTLSDataDir;
-	PIMAGE_DATA_DIRECTORY    pEntryExceptionDataDir;
-	PIMAGE_DATA_DIRECTORY    pEntryExportDataDir;
+    PIMAGE_DATA_DIRECTORY    pEntryImportDataDir;
+    PIMAGE_DATA_DIRECTORY    pEntryBaseRelocDataDir;
+    PIMAGE_DATA_DIRECTORY    pEntryTLSDataDir;
+    PIMAGE_DATA_DIRECTORY    pEntryExceptionDataDir;
+    PIMAGE_DATA_DIRECTORY    pEntryExportDataDir;
 
-	BOOL                     bIsDLLFile;
+    BOOL                     bIsDLLFile;
 } PE_HEADERS, *PPE_HEADERS;
 
 typedef struct _BASE_RELOCATION_ENTRY {
-	WORD Offset : 12;
-	WORD Type : 4;
+	  WORD Offset : 12;
+	  WORD Type : 4;
 } BASE_RELOCATION_ENTRY, *PBASE_RELOCATION_ENTRY;
 
 typedef BOOL(WINAPI* MAIN)();
 
 typedef struct _USTRING {
-	DWORD Length;
-	DWORD MaximumLength;
-	unsigned char* Buffer;
+    DWORD Length;
+    DWORD MaximumLength;
+    unsigned char* Buffer;
 } USTRING, *PUSTRING;
 
 typedef NTSTATUS(WINAPI* pSystemFunction032)(PUSTRING uStrBuffer, PUSTRING uStrKey);
